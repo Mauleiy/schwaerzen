@@ -2,7 +2,7 @@
   "use strict";
   var DATEIEN = ["woerter", "nurklein", "teile_extra", "medizin", "vornamen", "nachnamen", "staedte", "ausnahmen"];
   var $ = function (id) { return document.getElementById(id); };
-  var S = null, text = "", funde = [], hausliste = null;
+  var S = null, text = "", funde = [], korrekturen = [], hausliste = null;
 
   function status(t) { $("status").textContent = t; }
 
@@ -35,7 +35,10 @@
 
   function schwaerzen() {
     if (!S) return;
-    text = $("eingabe").value;
+    // Fehlende Umlaute aus dem Scan ergänzen (gleiche Länge, Positionen bleiben), dann schwärzen
+    var k = S.korrigiere($("eingabe").value.normalize("NFC"));
+    text = k.text;
+    korrekturen = k.korrekturen;
     funde = S.erkenne(text, { hausliste: hausliste ? hausliste.eintraege : [] });
     funde.forEach(function (f) { f.aktiv = true; });
     zeigen();
@@ -67,11 +70,13 @@
     var teil = text.slice(von, bis), rx = /\p{L}[\p{L}'’]*(?:-\p{L}[\p{L}'’]*)*/gu, m, p = 0;
     while ((m = rx.exec(teil))) {
       if (m.index > p) box.appendChild(document.createTextNode(teil.slice(p, m.index)));
-      var sp = document.createElement("span");
-      sp.className = "w";
+      var sp = document.createElement("span"), a = von + m.index, e = a + m[0].length, ki = [];
+      korrekturen.forEach(function (kk, i) { if (!kk.zurueck && kk.start >= a && kk.end <= e) ki.push(i); });
+      sp.className = ki.length ? "w korr" : "w";
       sp.textContent = m[0];
-      sp.setAttribute("data-s", String(von + m.index));
-      sp.setAttribute("data-e", String(von + m.index + m[0].length));
+      sp.setAttribute("data-s", String(a));
+      sp.setAttribute("data-e", String(e));
+      if (ki.length) sp.setAttribute("data-k", ki.join(","));
       box.appendChild(sp);
       p = m.index + m[0].length;
     }
@@ -85,6 +90,17 @@
     if (fi !== null) {
       var f = funde[Number(fi)];
       if (f.manuell && f.aktiv) funde.splice(Number(fi), 1); else f.aktiv = !f.aktiv;
+      zeigen();
+      return;
+    }
+    // Ergänzten Umlaut zurücknehmen: gescannte Schreibweise wiederherstellen
+    var ks = t.getAttribute("data-k");
+    if (ks !== null) {
+      ks.split(",").forEach(function (i) {
+        var kk = korrekturen[Number(i)];
+        text = text.slice(0, kk.start) + kk.alt + text.slice(kk.end);
+        kk.zurueck = true;
+      });
       zeigen();
       return;
     }
@@ -117,7 +133,7 @@
     $("eingabe").value = "";
     $("ergebnis").textContent = "";
     $("ergebnis-bereich").hidden = true;
-    text = ""; funde = [];
+    text = ""; funde = []; korrekturen = [];
     $("kopiert").textContent = "";
   }
 

@@ -1,4 +1,4 @@
-:root { --grund: #1b2430; --flaeche: #263243; --text: #e8edf3; --leise: #aab6c5; --fund-bg: #f2c14e; --fund-text: #17120a; --aus: #7fd1ff; --knopf: #2f6fb0; --knopf-text: #ffffff; --rand: #4a5b73; }
+:root { --grund: #1b2430; --flaeche: #263243; --text: #e8edf3; --leise: #aab6c5; --fund-bg: #f2c14e; --fund-text: #17120a; --aus: #7fd1ff; --knopf: #2f6fb0; --knopf-text: #ffffff; --rand: #4a5b73; --korr: #9fd8a4; }
 * { box-sizing: border-box; animation: none !important; transition: none !important; }
 html { -webkit-text-size-adjust: 100%; }
 body { margin: 0; background: var(--grund); color: var(--text); font: 18px/1.5 -apple-system, BlinkMacSystemFont, "Helvetica Neue", Arial, sans-serif; padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left); }
@@ -20,3 +20,5 @@ button:focus-visible { outline: 3px solid var(--aus); outline-offset: 2px; }
 .fund { background: var(--fund-bg); color: var(--fund-text); border-radius: 5px; padding: 1px 4px; font-weight: 600; cursor: pointer; }
 .fund.aus { background: transparent; color: var(--text); font-weight: 400; outline: 2px dashed var(--aus); outline-offset: 1px; text-decoration: underline wavy var(--aus); }
 .fund.nur { cursor: default; }
+.w.korr { text-decoration: underline dotted var(--korr); text-decoration-thickness: 2px; text-underline-offset: 4px; }
+.w.nur { cursor: default; }

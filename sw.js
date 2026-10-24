@@ -1,5 +1,5 @@
 // Service Worker: lädt alle eigenen Dateien vor und liefert sie offline aus. Kein Netzverkehr mit Inhalten.
-var VERSION = "schwaerzen-v2";
+var VERSION = "schwaerzen-v3";
 var DATEIEN = ["./", "index.html", "style.css", "app.js", "schwaerzen.js", "manifest.webmanifest", "icon-180.png", "icon-192.png", "icon-512.png",
   "daten/woerter.txt", "daten/nurklein.txt", "daten/teile_extra.txt", "daten/medizin.txt", "daten/vornamen.txt", "daten/nachnamen.txt", "daten/staedte.txt", "daten/ausnahmen.txt"];
 self.addEventListener("install", function (e) {

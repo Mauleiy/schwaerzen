@@ -38,6 +38,15 @@
     for (var i = 0; i < z.length; i++) { var w = z[i].trim(); if (w) s.add(w); }
     return s;
   }
+  function ohneUmlaut(w) { return w.replace(/ä/g, "a").replace(/ö/g, "o").replace(/ü/g, "u"); }
+  // Texterkennung verliert manchmal Umlaute (Jürgen → Jurgen): Namen und Städte auch ohne Umlaut führen,
+  // aber nur, wenn die Form ohne Umlaut kein gewöhnliches Wort ist.
+  function umlautFrei(menge, istWort) {
+    Array.from(menge).forEach(function (w) {
+      var f = ohneUmlaut(w);
+      if (f !== w && !istWort(f)) menge.add(f);
+    });
+  }
 
   function laden(d) {
     var woerter = mengeAus(d.woerter);
@@ -55,6 +64,8 @@
       var b = s.split(/\s*[(/]/)[0].trim();
       [s, b].forEach(function (x) { if (x && !/\s/.test(x)) stadt.add(x.toLowerCase()); });
     });
+    var istWort = function (w) { return woerter.has(w) || nurklein.has(w) || med.has(w); };
+    umlautFrei(vor, istWort); umlautFrei(nach, istWort); umlautFrei(stadt, istWort);
     return neu({ extra: extra, woerter: woerter, nurklein: nurklein, med: med, teile: teile, vor: vor, nach: nach, ausn: ausn, stadt: stadt });
   }
 
@@ -105,6 +116,45 @@
         return false;
       }
       return ok(0, 0);
+    }
+
+    // ---- Umlaut-Korrektur: unbekanntes Wort mit genau einer Umlautform im Wörterbuch (Gesprach → Gespräch)
+    var UMLAUT = { a: "ä", o: "ö", u: "ü" };
+    function umlautVariante(lw) {
+      var pos = [];
+      for (var i = 0; i < lw.length; i++) if (UMLAUT[lw.charAt(i)]) pos.push(i);
+      if (!pos.length || pos.length > 8) return null;
+      var treffer = null;
+      for (var mask = 1; mask < (1 << pos.length); mask++) {
+        var c = lw.split("");
+        for (var j = 0; j < pos.length; j++) if (mask & (1 << j)) c[pos[j]] = UMLAUT[c[pos[j]]];
+        var v = c.join("");
+        if (imWb(v) || D.med.has(v)) { if (treffer) return null; treffer = v; }
+      }
+      return treffer;
+    }
+    function korrigiere(text) {
+      var korrekturen = [], out = text, m;
+      WORT_RX.lastIndex = 0;
+      while ((m = WORT_RX.exec(text))) {
+        var teile = m[0].split("-"), s = m.index;
+        teile.forEach(function (p) {
+          var start = s;
+          s += p.length + 1;
+          if (p.length < 4 || p === p.toUpperCase()) return;
+          var lw = p.toLowerCase();
+          if (bekannt(lw) || D.extra.has(lw) || D.stadt.has(lw) || istNameListe(lw) || zerlegbar(lw)) return;
+          var v = umlautVariante(lw);
+          if (!v) return;
+          // Großgeschrieben, Umlautform aber nur kleingeschrieben bekannt (Prag → präg): eher Eigenname, nicht ändern
+          if (p.charAt(0) !== lw.charAt(0) && !D.woerter.has(v) && !D.med.has(v)) return;
+          var neuW = "";
+          for (var i = 0; i < p.length; i++) neuW += p.charAt(i) === p.charAt(i).toLowerCase() ? v.charAt(i) : v.charAt(i).toUpperCase();
+          korrekturen.push({ start: start, end: start + p.length, alt: p, neu: neuW });
+          out = out.slice(0, start) + neuW + out.slice(start + p.length);
+        });
+      }
+      return { text: out, korrekturen: korrekturen };
     }
 
     // Prüfung eines einzelnen Wortteils (ohne Bindestrich): "name" | "ort" | null
@@ -401,7 +451,7 @@
       });
       return out + text.slice(pos);
     }
-    return { erkenne: erkenne, ersetze: ersetze, beschriftung: beschriftung, parseHausliste: parseHausliste,
+    return { erkenne: erkenne, ersetze: ersetze, beschriftung: beschriftung, parseHausliste: parseHausliste, korrigiere: korrigiere,
              _intern: { pruefeWort: pruefeWort, zerlegbar: zerlegbar, bekannt: bekannt } };
   }
 
