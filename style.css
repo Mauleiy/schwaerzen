@@ -1,0 +1,22 @@
+:root { --grund: #1b2430; --flaeche: #263243; --text: #e8edf3; --leise: #aab6c5; --fund-bg: #f2c14e; --fund-text: #17120a; --aus: #7fd1ff; --knopf: #2f6fb0; --knopf-text: #ffffff; --rand: #4a5b73; }
+* { box-sizing: border-box; animation: none !important; transition: none !important; }
+html { -webkit-text-size-adjust: 100%; }
+body { margin: 0; background: var(--grund); color: var(--text); font: 18px/1.5 -apple-system, BlinkMacSystemFont, "Helvetica Neue", Arial, sans-serif; padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left); }
+main { max-width: 760px; margin: 0 auto; padding: 16px; }
+h1 { font-size: 26px; margin: 8px 0 4px; }
+h2 { font-size: 20px; margin: 24px 0 8px; }
+section { margin-bottom: 8px; }
+.hinweis { display: block; color: var(--leise); margin-bottom: 6px; }
+.status, .legende { color: var(--leise); font-size: 15px; margin: 4px 0 8px; }
+textarea { width: 100%; background: var(--flaeche); color: var(--text); border: 2px solid var(--rand); border-radius: 10px; padding: 12px; font: 18px/1.5 -apple-system, BlinkMacSystemFont, "Helvetica Neue", Arial, sans-serif; resize: vertical; min-height: 180px; }
+textarea:focus { outline: 3px solid var(--aus); outline-offset: 1px; }
+.knoepfe { display: flex; gap: 12px; margin: 12px 0; flex-wrap: wrap; }
+button { flex: 1 1 140px; min-height: 56px; border-radius: 12px; border: 2px solid var(--rand); font: 600 19px -apple-system, BlinkMacSystemFont, "Helvetica Neue", Arial, sans-serif; padding: 10px 16px; color: var(--text); background: var(--flaeche); }
+button.haupt { background: var(--knopf); border-color: var(--knopf); color: var(--knopf-text); }
+button:disabled { opacity: 0.5; }
+button:focus-visible { outline: 3px solid var(--aus); outline-offset: 2px; }
+.ergebnis { background: var(--flaeche); border: 2px solid var(--rand); border-radius: 10px; padding: 12px; white-space: pre-wrap; word-wrap: break-word; overflow-wrap: anywhere; }
+.w { cursor: pointer; }
+.fund { background: var(--fund-bg); color: var(--fund-text); border-radius: 5px; padding: 1px 4px; font-weight: 600; cursor: pointer; }
+.fund.aus { background: transparent; color: var(--text); font-weight: 400; outline: 2px dashed var(--aus); outline-offset: 1px; text-decoration: underline wavy var(--aus); }
+.fund.nur { cursor: default; }

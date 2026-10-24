@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; connect-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; base-uri 'none'; form-action 'none'">
+<meta name="theme-color" content="#1b2430">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Schwärzen">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icon-180.png">
+<link rel="icon" href="icon-192.png">
+<link rel="stylesheet" href="style.css">
+<title>Schwärzen</title>
+</head>
+<body>
+<main>
+  <h1>Schwärzen</h1>
+  <p class="status" id="status" role="status">Wörterbuch wird geladen …</p>
+
+  <section>
+    <label for="eingabe" class="hinweis">Ins Feld tippen → Text scannen</label>
+    <textarea id="eingabe" rows="9" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"></textarea>
+    <div class="knoepfe">
+      <button id="btn-schwaerzen" class="haupt" disabled>Schwärzen</button>
+      <button id="btn-leeren" class="neben">Leeren</button>
+    </div>
+  </section>
+
+  <section id="ergebnis-bereich" hidden>
+    <h2>Ergebnis</h2>
+    <p class="legende"><span class="fund nur">[Name]</span> geschwärzt · <span class="fund aus nur">Wort</span> aufgehoben · Antippen schaltet um, andere Wörter antippen schwärzt sie</p>
+    <div id="ergebnis" class="ergebnis"></div>
+    <div class="knoepfe">
+      <button id="btn-kopieren" class="haupt">Kopieren</button>
+    </div>
+    <p id="kopiert" class="status" role="status"></p>
+  </section>
+
+  <section class="haus">
+    <h2>Hausliste</h2>
+    <p id="haus-anzeige" class="status">Hausliste: keine</p>
+    <div class="knoepfe">
+      <button id="btn-haus-laden" class="neben">Hausliste laden</button>
+      <button id="btn-haus-weg" class="neben" hidden>Hausliste entfernen</button>
+    </div>
+    <input type="file" id="haus-datei" accept=".txt,text/plain" hidden>
+  </section>
+</main>
+<script src="schwaerzen.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
