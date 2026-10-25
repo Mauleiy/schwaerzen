@@ -291,3 +291,9 @@ ziesar
 zossen
 zwiesel
 öhringen
+Aufnahmedat.
+Versichertennr.
+Fallnr.
+Pat'in
+Bed.
+Mobil
