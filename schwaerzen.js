@@ -20,16 +20,21 @@
     "weiterhin bisher derzeit aktuell wurde war ist hat sind waren haben hatte wird werden kann nicht kein keine noch auch nur schon sehr bereits " +
     "dieser diese dieses jetzt nun so wie was wer wo wann warum weil sowie sowohl weder zunächst später danach davor dabei dazu darauf ").split(/\s+/));
 
-  var TIER1 = new Set(["Herr", "Herrn", "Frau", "Hr", "Fr", "Dr", "Prof", "Pat", "OA", "OÄ", "RA", "RAin", "PD"]);
+  // Umbau 25.10.2026, Punkt D1
+  // Umbau 25.10.2026, Punkt D3
+  var TIER1 = new Set(["Herr", "Herrn", "Frau", "HERR", "HERRN", "FRAU", "Hr", "Fr", "Dr", "Prof", "Pat", "PAT", "Patient", "Patientin", "PATIENT", "PATIENTIN", "Pfl", "OA", "OÄ", "RA", "RAin", "PD"]);
   var TITEL_SKIP = new Set(["dr", "med", "prof", "habil", "rer", "nat", "phil", "jur", "dent", "univ", "mult", "pd", "priv", "doz", "dipl", "psych", "hc", "h", "c", "oa", "oä", "herr", "frau", "herrn"]);
-  var ROLLE2 = new Set(("patient patientin patienten pfleger schwester betreuer betreuerin rechtsanwalt rechtsanwältin richter richterin " +
+  var ROLLE2 = new Set(("patient patientin patienten pfleger pfl schwester betreuer betreuerin rechtsanwalt rechtsanwältin richter richterin " +
     "sachverständige sachverständiger gutachter gutachterin oberarzt oberärztin stationsarzt stationsärztin psychologe psychologin " +
     "sozialarbeiter sozialarbeiterin verteidiger verteidigerin staatsanwalt staatsanwältin bezugspfleger bezugspflegerin ergotherapeut ergotherapeutin").split(/\s+/));
-  var FAM = new Set("mutter vater bruder schwester sohn tochter ehefrau ehemann freund freundin onkel tante großmutter großvater oma opa".split(/\s+/));
+  var FAM = new Set("mutter vater bruder schwester sohn tochter ehefrau ehemann freund freundin onkel tante großmutter großvater oma opa cousin cousine".split(/\s+/));
   var PARTIKEL = new Set("von van de zu zur vom der den ten ter".split(/\s+/));
   var NAMENSUFFIX = new Set("mann berg bach feld wald hof dorf burg hagen horst meier meyer brock kamp".split(/\s+/));
   var MEDSUFFIX = /(?:ämie|ämien|itis|iden|ose|osen|pathie|penie|zytose|urie|plegie|algie|ektomie|skopie|graphie|ismus|zepin|zepam|pramin|triptylin|peridol|azol|mycin|cillin|sartan|pril|olol|statin|prazol|oxetin|dipin|tidin|fenac|profen|oxacin|floxacin|ika|ikum)(?:s|n|en|e|er)?$/;
   var STADT_TRIGGER = new Set("in nach aus bei von um raum stadt gemeinde umgebung universität uni landgericht amtsgericht".split(/\s+/));
+  // Umbau 25.10.2026, Punkt E
+  var ORT_KONTEXT = new Set("in aus nach wohnhaft wohnort".split(/\s+/));
+  var ORT_ENDUNG_RX = /(?:dorf|torf|werder|walde|hagen|hausen|stedt|felde|burg|see|ow|itz)$/;
   var LOCKERUNG = new Set("0a 0b 1a 1b 2a 2b 2c 2d 2e 3a 3b 3c 4a 4b".split(" "));
 
   function mengeAus(text) {
@@ -54,9 +59,23 @@
     var nurklein = mengeAus(d.nurklein);
     var teile = new Set(woerter);
     nurklein.forEach(function (w) { teile.add(w); });
-    mengeAus(d.teile_extra).forEach(function (w) { teile.add(w); });
-    med.forEach(function (w) { teile.add(w); });
+    // Umbau 25.10.2026, Punkt F2
     var extra = new Set(EXTRA_BEKANNT);
+    mengeAus(d.teile_extra).forEach(function (w) {
+      if (w.charAt(0) !== w.charAt(0).toLowerCase() || /[.']/.test(w)) {
+        var lw = w.toLowerCase().replace(/\.$/, "");
+        teile.add(lw);
+        med.add(lw);
+        extra.add(lw);
+        if (/['’]/.test(lw)) {
+          var norm = lw.replace(/['’]/g, "'"), typ = lw.replace(/['’]/g, "’");
+          med.add(norm); med.add(typ); extra.add(norm); extra.add(typ);
+        }
+      } else {
+        teile.add(w);
+      }
+    });
+    med.forEach(function (w) { teile.add(w); });
     EXTRA_BEKANNT.forEach(function (w) { med.add(w); teile.add(w); });
     var vor = mengeAus(d.vornamen), nach = mengeAus(d.nachnamen), ausn = mengeAus(d.ausnahmen);
     var stadt = new Set();
@@ -174,10 +193,15 @@
         return "ort";
       }
       if (istStadt && vorWort && STADT_TRIGGER.has(vorWort)) return "ort";
+      if (!gross && vorWort && ORT_KONTEXT.has(vorWort) && !bekannt(lw) && !istNameListe(lw) && !D.ausn.has(lw)) {
+        if (ORT_ENDUNG_RX.test(lw)) return "ort";
+        if (!zerlegbar(lw) && !(lw.length >= 8 && MEDSUFFIX.test(lw))) return "ort";
+      }
       if (istNameListe(lw)) {
         if (!imWb(lw)) return "name";
         if (!erstesTeil) return null;
-        if (ctx && ctx.satzanfang) return "name";
+        // Umbau 25.10.2026, Punkt F1
+        if (ctx && ctx.satzanfang) return ctx.nachZiffer ? null : "name";
         return ausnahmeVor(ctx) ? null : "name";
       }
       if (bekannt(lw)) {
@@ -199,13 +223,16 @@
       return res;
     }
 
-    var MONATE = "Januar|Jänner|Februar|März|Maerz|April|Mai|Juni|Juli|August|September|Oktober|November|Dezember";
+    // Umbau 25.10.2026, Punkt C2
+    var MONATE = "Januar|Jänner|Februar|März|Maerz|April|Mai|Juni|Juli|August|September|Oktober|November|Dezember|Jan\\.?|Jän\\.?|Feb\\.?|Mär\\.?|Mrz\\.?|Apr\\.?|Jun\\.?|Jul\\.?|Aug\\.?|Sep\\.?|Sept\\.?|Okt\\.?|Nov\\.?|Dez\\.?";
     var DATUM_RX = new RegExp("(?<![\\d.])(?:(?:19|20)\\d{2}-\\d{2}-\\d{2}|\\d{1,2}\\.\\s?\\d{1,2}\\.\\s?(?:\\d{4}|\\d{2})(?!\\d)|\\d{1,2}\\.\\s?(?:" + MONATE + ")(?:\\s+\\d{4})?|(?:" + MONATE + ")\\s+\\d{4}|\\d{1,2}\\.\\d{1,2}\\.(?!\\d)|(?:19|20)\\d{2}(?![\\d.,/]))", "u");
     var DATUM_VOLL_RX = new RegExp("(?<![\\d.])(?:(?:19|20)\\d{2}-\\d{2}-\\d{2}|\\d{1,2}\\.\\s?\\d{1,2}\\.\\s?(?:\\d{4}|\\d{2})(?!\\d)|\\d{1,2}\\.\\s?(?:" + MONATE + ")(?:\\s+\\d{4})?|\\d{1,2}\\.\\d{1,2}\\.(?!\\d))", "u");
     var TRIGGER = [
       { art: "Geburtsdatum", rx: /(?:\bgeb(?:oren(?:e[rn]?)?)?\.?(?![\p{L}])|Geburtsdatum|Geburtstag|\bgeb\.-?\s?Dat\.?)/giu, jahr: true },
-      { art: "Aufnahmedatum", rx: /(?:\bAufnahme(?:datum|tag)?\b|\baufgenommen\b|\bAufn\.|\bAufnahmedat\.)/gi, jahr: false },
-      { art: "Entlassdatum", rx: /(?:\bEntlass(?:ung|ungsdatum|datum|ene[rn]?|en)?\b|\bentlassen\b|\bEntl\.)/gi, jahr: false }
+      // Umbau 25.10.2026, Punkt C1
+      { art: "Aufnahmedatum", rx: /(?:\bAufnahme(?:datum|tag)?\b|\baufgenommen\b|\bAufn\.|\bAufnahmedat\.|\baufgen\.)/gi, jahr: false },
+      // Umbau 25.10.2026, Punkt C4
+      { art: "Entlassdatum", rx: /(?:\bEntlass(?:ung|ungsdatum|datum|tag|ene[rn]?|en)?\b|\bentlassen\b|\bEntl\.)/gi, jahr: false }
     ];
     var STERN_RX = /(?<![\w*])\*\s?(?=\d)/g;
 
@@ -223,9 +250,21 @@
       var RUECK = /(\d{1,2}\.\s?\d{1,2}\.\s?(?:\d{4}|\d{2}))(\s+(?:\p{L}+\s+){0,2})(aufgenommen|entlassen)\b/giu;
       var mr;
       while ((mr = RUECK.exec(text))) add(mr.index, mr.index + mr[1].length, /^aufgen/i.test(mr[3]) ? "Aufnahmedatum" : "Entlassdatum", "Datum");
+      // Umbau 25.10.2026, Punkt C3
+      var ZEITRAUM_RX = new RegExp("\\bvom[ \\t]+(" + DATUM_VOLL_RX.source + ")[ \\t]+bis(?:[ \\t]+zum)?[ \\t]+(" + DATUM_VOLL_RX.source + ")", "giu");
+      var mz;
+      while ((mz = ZEITRAUM_RX.exec(text))) {
+        var umg = text.slice(Math.max(0, mz.index - 60), Math.min(text.length, mz.index + mz[0].length + 60));
+        if (/(?:stationär|Behandlung|Aufenthalt|befand[ \t]+sich|befindet[ \t]+sich)/i.test(umg)) {
+          var s1 = mz.index + mz[0].indexOf(mz[1]);
+          var s2 = mz.index + mz[0].lastIndexOf(mz[2]);
+          add(s1, s1 + mz[1].length, "Aufnahmedatum", "Datum");
+          add(s2, s2 + mz[2].length, "Entlassdatum", "Datum");
+        }
+      }
       alle.forEach(function (t, idx) {
         var fenster = text.slice(t.ende, t.ende + (t.stern ? 14 : 42));
-        var cut = fenster.search(/\n|[!?]|\.(?=\s+\p{Lu}\p{Ll})/u);
+        var cut = fenster.search(/\n|[!?]|(?<!\b\d{1,2})\.(?=\s+\p{Lu}\p{Ll})/u);
         if (cut >= 0) fenster = fenster.slice(0, cut);
         var naechster = alle[idx + 1];
         if (naechster && naechster.pos < t.ende + fenster.length && !naechster.stern) fenster = fenster.slice(0, naechster.pos - t.ende);
@@ -237,23 +276,27 @@
       });
     }
 
-    var AZ_CODES = "(?:StVK|KLs|VRs|BRs|BvR|BvL|OWi|Js|Ws|Cs|Ds|Ls|Ns|Qs|Gs|Ks|Ss|AR)";
+    // Umbau 25.10.2026, Punkt G
+    var AZ_CODES = "(?:XVII|XIV|StVK|KLs|VRs|BRs|BvR|BvL|OWi|Js|Ws|Cs|Ds|Ls|Ns|Qs|Gs|Ks|Ss|AR|F)";
     var AZ_WERT = "(?=[^\\s]*\\d)[A-Za-zÄÖÜ0-9()/.\\-]*[A-Za-zÄÖÜ0-9)]";
     var NUMMER_RXS = [
       /[\w.+\-]+@[\w\-]+(?:\.[\w\-]+)+/g,
-      new RegExp("(?<![\\w/])(?:\\d{1,4}\\s?)?" + AZ_CODES + "(?:\\s?\\([^)\\n]{1,12}\\))?\\s?\\d{1,6}\\s?/\\s?\\d{2,4}(?!\\d)", "g"),
+      new RegExp("(?<![\\w/])(?:\\d{1,4}\\s?)?" + AZ_CODES + "(?:\\s?\\([^)\\n]{1,12}\\))?\\s?\\d{1,6}\\s?/\\s?\\d{2,4}(?:[ \\t]+[A-Z])?(?![\\w])", "g"),
       /(?<![\w/.,\-])\d{1,6}\s?\/\s?\d{2}(?!\d)\s*\(\s*\d{1,6}\s?\/\s?\d{2}\s*\)/g,
       /(?<!\w)[A-Z]\d{9}(?!\w)/g,
+      // Umbau 25.10.2026, Punkt A
+      /(?<![\w.,/+\-])(?:\(0\d+\)[ \t]?\d[\d \t/\-]*\d|(?:\+49|0049|0)(?:[ \t]*\(0\))?[ \t/\-]?\(?\d{2,5}\)?(?:[ \t]*[ \t/\-][ \t]*\d{2,10}){1,4}(?:-\d{1,4})?)(?!\d)/g,
       /(?<![\w.,])\d{6,}(?![\w])/g,
       /(?<![\w\uE000-])[A-Z]{1,3}[-/ ]?\d{6,}(?!\w)/g,
-      /(?<![\w])DE ?\d{2}(?: ?\d){18}(?!\d)/g,
-      /(?<![\w.,/+\-])(?:\(0\d+\)[ \t]?\d[\d \t/\-]*\d|(?:\+49|0049|0)[ \t]?\(?\d{1,5}\)?(?:[ \t/\-]?\d{2,}){1,4})(?!\d)/g
+      /(?<![\w])DE ?\d{2}(?: ?\d){18}(?!\d)/g
     ];
     var WERT_LABELS = [
       new RegExp("(?<!\\w)(?:Aktenzeichen|Geschäftszeichen|Geschaeftszeichen|Unser Zeichen|Ihr Zeichen|Az\\.|Gz\\.)[ \\t]*:?[ \\t]*(" + AZ_WERT + "(?:[ \\t]+" + AZ_WERT + "){0,3})", "g"),
       /(?<!\w)(?:Krankenversichertennummer|Versichertennummer|Patientennummer|Aufnahmenummer|Fallnummer|Fall-Nr\.?|Fallnr\.?|Pat\.-Nr\.?|Pat\.[ \t]?Nr\.?|PID)[ \t]*[:.]?[ \t]*((?=[A-Za-z0-9/\-]*\d)[A-Za-z0-9][A-Za-z0-9/\-]*)/g
     ];
-    var STRASSE = "(?:\\p{Lu}[\\p{L}\\-]*?(?:straße|strasse|str\\.|weg|allee|platz|ring|damm|gasse|ufer|chaussee)|\\p{Lu}\\p{Ll}+[ \\t]+(?:Straße|Strasse|Weg|Allee|Platz|Ring|Damm|Gasse|Ufer|Chaussee))";
+    // Umbau 25.10.2026, Punkt B1
+    // Umbau 25.10.2026, Punkt B2
+    var STRASSE = "(?:\\p{Lu}[\\p{L}\\-]*?(?:straße|strasse|[Ss]tr\\.|weg|allee|platz|ring|damm|gasse|ufer|chaussee|wall|anger|pfad)|\\p{Lu}\\p{Ll}+[ \\t]+(?:Straße|Strasse|Str\\.|Weg|Allee|Platz|Ring|Damm|Gasse|Ufer|Chaussee|Wall|Anger|Pfad))";
     var EINHEIT = "(?![ \\t]*(?:Tag|Woche|Monat|Jahr|Stunde|Minute|Mal|mal|x\\b|mg|ml|Uhr|Stück|Tablette|Wochen|Tage|Monate|Jahre|Stunden|Minuten))";
     var HAUSNR = "[ \\t]*\\d{1,4}[ \\t]?[a-zA-Z]?(?:[ \\t]?[-/][ \\t]?\\d{1,4}[a-zA-Z]?)?(?![\\w])";
     var ADRESSE_RX = new RegExp("(?<![\\p{L}\\d])" + STRASSE + HAUSNR + EINHEIT + "(?:[ \\t]*,?[ \\t]*\\d{5}[ \\t]+\\p{Lu}\\p{L}+)?", "gu");
@@ -283,7 +326,7 @@
         if (!o) return;
         var t = o.split("|").map(function (x) { return x.trim(); });
         var kat = (t[0] || "").toLowerCase(), modus = (t[2] || "").toLowerCase();
-        if (t.length !== 3 || !t[1] || ["einrichtung", "ort", "adresse", "stadt", "station"].indexOf(kat) < 0 || ["immer", "kontext"].indexOf(modus) < 0) {
+        if (t.length !== 3 || !t[1] || ["einrichtung", "ort", "adresse", "stadt", "station", "name"].indexOf(kat) < 0 || ["immer", "kontext"].indexOf(modus) < 0) {
           fehler.push(i + 1); return;
         }
         eintraege.push([kat, t[1].normalize("NFC"), modus]);
@@ -294,6 +337,7 @@
     function hauslisteFinden(text, liste, add) {
       liste.forEach(function (e) {
         var kat = e[0], eintrag = e[1], modus = e[2];
+        var zielArt = kat === "name" ? "Name" : "Ort";
         var kern = eintrag.split(/\s+/).map(esc).join("[ \\t]+");
         var rx;
         if (kat === "station") {
@@ -308,7 +352,7 @@
           rx = new RegExp("(?:(?<=(?:\\b[Ii]n|\\b[Nn]ach|\\b[Aa]us|\\b[Bb]ei|\\bStandort|\\bKlinikum)[ \\t]+|Berlin-)" + erster + rest + "(?![\\p{L}\\d])|" + erster + rest + "(?=[ \\t]+Klinikum(?![\\p{L}]))(?<![\\p{L}\\d]))", "gu");
         }
         var m;
-        while ((m = rx.exec(text))) { if (m[0].length === 0) { rx.lastIndex++; continue; } add(m.index, m.index + m[0].length, "Ort", "Hausliste"); }
+        while ((m = rx.exec(text))) { if (m[0].length === 0) { rx.lastIndex++; continue; } add(m.index, m.index + m[0].length, zielArt, "Hausliste"); }
       });
     }
 
@@ -360,6 +404,22 @@
         tok.push({ s: s, e: e, w: m[0], lw: m[0].toLowerCase(), ziffer: /\d/.test(vz) || /\d/.test(nz) });
       }
       function luecke(a, b) { return /^\.?[ \t]+$|^\.?[ \t]*\n[ \t]*$|^[ \t]*$/.test(text.slice(tok[a].e, tok[b].s)); }
+      function ortVorWort(idx) {
+        if (idx <= 0) return null;
+        var gap = text.slice(tok[idx - 1].e, tok[idx].s);
+        if (/^[ \t]*:[ \t]*$/.test(gap) && (tok[idx - 1].lw === "wohnort" || tok[idx - 1].lw === "wohnhaft")) return tok[idx - 1].lw;
+        if (idx >= 3 && /^[ \t]*:[ \t]*$/.test(gap) && tok[idx - 1].lw === "akte" && tok[idx - 2].lw === "laut" && (tok[idx - 3].lw === "wohnort" || tok[idx - 3].lw === "wohnhaft")) return tok[idx - 3].lw;
+        return null;
+      }
+      function direktLuecke(a, b) { return /^[ \t]+$/.test(text.slice(tok[a].e, tok[b].s)); }
+      function istVorOderUnbekannt(w, lw) {
+        if (D.vor.has(lw)) return true;
+        if (D.nach.has(lw) || D.stadt.has(lw) || D.extra.has(lw) || bekannt(lw) || zerlegbar(lw)) return false;
+        return w.split("-").every(function (p) {
+          var lp = p.toLowerCase();
+          return D.vor.has(lp) || (!D.nach.has(lp) && !D.stadt.has(lp) && !D.extra.has(lp) && !bekannt(lp) && !zerlegbar(lp));
+        });
+      }
       function istInitial(i) { var t = tok[i]; return t.w.length === 1 && t.w !== t.w.toLowerCase() && text.charAt(t.e) === "."; }
       function satzStart(pos) {
         var p = pos - 1;
@@ -378,18 +438,50 @@
       var erzwungen = {};
       for (var i = 0; i < tok.length; i++) {
         var t = tok[i];
-        if (TIER1.has(t.w) && i + 1 < tok.length) {
+        var ketteStart = -1;
+        if ((TIER1.has(t.w) || /^pat['’]in$/i.test(t.w)) && i + 1 < tok.length) {
           var j = i + 1;
           if (!luecke(i, j)) continue;
           while (j < tok.length && TITEL_SKIP.has(tok[j].lw) && j + 1 < tok.length && luecke(j, j + 1)) j++;
           var x = tok[j];
           if (!x || istInitial(j) || FUNKTION.has(x.lw) || x.ziffer) continue;
+          // Abnahme 25.10.2026 (Claude), zu Punkt D3: „Patient“ als volles Wort endet am Satzpunkt und schützt
+          // kein gewöhnliches Nomen („der Patient Daten“, „Patient. Gepflegtes Äußeres“)
+          if (/^patient(?:in)?$/i.test(t.w) && (/\./.test(text.slice(t.e, x.s)) || ((bekannt(x.lw) || zerlegbar(x.lw)) && !D.vor.has(x.lw) && !D.nach.has(x.lw) &&
+              !(j + 1 < tok.length && /^[ \t]+$/.test(text.slice(x.e, tok[j + 1].s)) && /^\p{Lu}/u.test(tok[j + 1].w))))) continue;
           var gross = x.w.charAt(0) !== x.w.charAt(0).toLowerCase();
-          if (gross || (!bekannt(x.lw) && !zerlegbar(x.lw) && x.lw.length >= 3)) erzwungen[j] = true;
-        } else if (ROLLE2.has(t.lw) && i + 1 < tok.length && luecke(i, i + 1)) {
+          if (gross || (!bekannt(x.lw) && !zerlegbar(x.lw) && x.lw.length >= 3)) {
+            erzwungen[j] = true;
+            ketteStart = j;
+          }
+        } else if ((ROLLE2.has(t.lw) || FAM.has(t.lw)) && i + 1 < tok.length && luecke(i, i + 1)) {
           var y = tok[i + 1];
           var lower = y.w.charAt(0) === y.w.charAt(0).toLowerCase();
-          if (lower && !FUNKTION.has(y.lw) && !bekannt(y.lw) && !zerlegbar(y.lw) && y.lw.length >= 3 && !y.ziffer) erzwungen[i + 1] = true;
+          if (lower && !FUNKTION.has(y.lw) && !bekannt(y.lw) && !zerlegbar(y.lw) && y.lw.length >= 3 && !y.ziffer) {
+            erzwungen[i + 1] = true;
+          } else if (!lower && !istInitial(i + 1) && !FUNKTION.has(y.lw) && !y.ziffer && istVorOderUnbekannt(y.w, y.lw)) {
+            ketteStart = i + 1;
+          }
+        }
+        // Umbau 25.10.2026, Punkt D2
+        if (ketteStart >= 0 && tok[ketteStart].w.charAt(0) !== tok[ketteStart].w.charAt(0).toLowerCase()) {
+          if (istVorOderUnbekannt(tok[ketteStart].w, tok[ketteStart].lw)) {
+            for (var step = 1; step <= 2 && ketteStart + step < tok.length; step++) {
+              var idxF = ketteStart + step;
+              if (!direktLuecke(idxF - 1, idxF)) break;
+              var wf = tok[idxF];
+              if (wf.w.charAt(0) === wf.w.charAt(0).toLowerCase() || istInitial(idxF) || wf.ziffer) break;
+              erzwungen[idxF] = true;
+            }
+          } else if (ketteStart + 2 < tok.length && direktLuecke(ketteStart, ketteStart + 1) && direktLuecke(ketteStart + 1, ketteStart + 2)) {
+            var w2 = tok[ketteStart + 1], w3 = tok[ketteStart + 2];
+            if (w2.w.charAt(0) !== w2.w.charAt(0).toLowerCase() && !istInitial(ketteStart + 1) && !w2.ziffer &&
+                w3.w.charAt(0) !== w3.w.charAt(0).toLowerCase() && !istInitial(ketteStart + 2) && !w3.ziffer &&
+                (istVorOderUnbekannt(w2.w, w2.lw) || istVorOderUnbekannt(w3.w, w3.lw))) {
+              erzwungen[ketteStart + 1] = true;
+              erzwungen[ketteStart + 2] = true;
+            }
+          }
         }
         if (/(?:^|-)(?:jva|klinikum|krankenhaus|bahnhof|haltestelle|standort|ambulanz|wohnheim)$/.test(t.lw)) {
           var q = i + 1;
@@ -401,22 +493,42 @@
           if (z.w.charAt(0) !== z.w.charAt(0).toLowerCase() && !FUNKTION.has(z.lw) && !istInitial(i + 2)) erzwungen[i + 2] = true;
         }
       }
+      // Umbau 25.10.2026, Punkt D4
+      var sicherName = new Set();
+      for (var idxE in erzwungen) {
+        var te = tok[idxE];
+        if (!te || te.ziffer || TIER1.has(te.w) || TITEL_SKIP.has(te.lw)) continue;
+        var vw = idxE > 0 && luecke(idxE - 1, idxE) ? tok[idxE - 1].lw : ortVorWort(Number(idxE));
+        if (pruefeWort(te.w, vw, { satzanfang: satzStart(te.s) }) !== "ort") {
+          sicherName.add(te.lw.replace(/['’]s$/, ""));
+        }
+      }
+      funde.forEach(function (f) {
+        if (f.art === "Name" && f.grund === "Hausliste") {
+          f.text.split(/\s+/).forEach(function (p) { if (p) sicherName.add(p.toLowerCase()); });
+        }
+      });
       for (var k = 0; k < tok.length; k++) {
         var tk = tok[k];
         if (tk.ziffer) continue;
         var vorW = null;
         if (k > 0 && luecke(k - 1, k)) vorW = tok[k - 1].lw;
-        var ctx = { vorKlein: k > 0 && vorW !== null && tok[k - 1].w.charAt(0) === tok[k - 1].w.charAt(0).toLowerCase(), vorWort: vorW, satzanfang: satzStart(tk.s), vorZiffer: /\d[ \t]*$/.test(text.slice(Math.max(0, tk.s - 4), tk.s)) };
+        else vorW = ortVorWort(k);
+        var ctx = { vorKlein: k > 0 && vorW !== null && tok[k - 1].w.charAt(0) === tok[k - 1].w.charAt(0).toLowerCase(), vorWort: vorW, satzanfang: satzStart(tk.s), vorZiffer: /\d[ \t]*$/.test(text.slice(Math.max(0, tk.s - 4), tk.s)), nachZiffer: /^[ \t]+\d/.test(text.slice(tk.e, tk.e + 6)) };
         var art = null;
         if (FAM.has(tk.lw) && k + 1 < tok.length && tok[k + 1].lw === "von" && luecke(k, k + 1)) continue;
+        var basisLw = tk.lw.replace(/['’]s$/, "");
+        var ausSicher = !erzwungen[k] && (sicherName.has(basisLw) || (basisLw.length > 4 && basisLw.slice(-1) === "s" && sicherName.has(basisLw.slice(0, -1)))) && tk.w.charAt(0) !== tk.w.charAt(0).toLowerCase() && (!imWb(basisLw) || (ctx.satzanfang ? !ctx.nachZiffer : !ausnahmeVor(ctx)));
         if (erzwungen[k]) {
           art = pruefeWort(tk.w, vorW, ctx) === "ort" ? "Ort" : "Name";
+        } else if (ausSicher) {
+          art = "Name";
         } else {
           if (istInitial(k) || tk.w.length === 1) continue;
           var r = pruefeWort(tk.w, vorW, ctx);
           if (r) art = r === "ort" ? "Ort" : "Name";
         }
-        if (art) add(tk.s, tk.e, art, erzwungen[k] ? "Anrede/Rolle" : "Wörterbuch");
+        if (art) add(tk.s, tk.e, art, (erzwungen[k] || ausSicher) ? "Anrede/Rolle" : "Wörterbuch");
       }
       funde.sort(function (a, b) { return a.start - b.start; });
       return funde;
